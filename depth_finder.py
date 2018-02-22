@@ -28,7 +28,7 @@ def get_image():
     # read is the easiest way to get a full image out of a VideoCapture object.
     camera_port = 0
     camera = cv2.VideoCapture(camera_port)
-    time.sleep(0.1)  # otherwise the image is dark
+    time.sleep(0.5)  # otherwise the image is dark
     retval, im = camera.read()
     return im
 
@@ -64,6 +64,8 @@ def test_simple(params):
     while(True):
         start_time = time.time()
         input_image = get_image()
+        if input_image == None:
+            continue
         original_height, original_width, num_channels = input_image.shape
         input_image = scipy.misc.imresize(input_image, [height, width], interp='lanczos')
         input_image = input_image.astype(np.float32) / 255

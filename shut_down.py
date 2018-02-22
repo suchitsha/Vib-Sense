@@ -13,9 +13,9 @@ def blink():
   while True:
     for i in range(len(l_arr)):
       LedPin = l_arr[i]
+      #GPIO.output(LedPin, GPIO.HIGH)  # led on
+      #time.sleep(1)
       setup(LedPin)
-      GPIO.output(LedPin, GPIO.HIGH)  # led on
-      time.sleep(1)
       GPIO.output(LedPin, GPIO.LOW) # led off
       time.sleep(1)
 
