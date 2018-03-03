@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import cv2
 import numpy as np
 from monodepth_model import *
-
+from PIL import Image
 
 def post_process_disparity(disp):
     _, h, w = disp.shape
@@ -24,12 +24,12 @@ def post_process_disparity(disp):
     r_mask = np.fliplr(l_mask)
     return r_mask * l_disp + l_mask * r_disp + (1.0 - l_mask - r_mask) * m_disp
 
-def get_image():
-    # read is the easiest way to get a full image out of a VideoCapture object.
-    camera_port = 0
-    camera = cv2.VideoCapture(camera_port)
-    time.sleep(0.5)  # otherwise the image is dark
+def get_image(camera):
+    if camera.read() == False:
+        camera.open()
     retval, im = camera.read()
+    #cv2.imwrite('current_frame.png', im)
+    #cv2.destroyAllWindows()
     return im
 
 def pooling(depth_grad):
@@ -44,8 +44,8 @@ def pooling(depth_grad):
     max_val = np.amax(depth_grad)
     depth_grad = depth_grad/max_val
     grid = np.ones((raws, columns))
-    for i in xrange(raws):
-        for k in xrange(columns):
+    for i in range(raws):
+        for k in range(columns):
             grid[i, k] = np.average(depth_grad[i*cell_height:(i+1)*cell_height,k*cell_width:(k+1)*cell_width])
     return grid
 
@@ -56,16 +56,22 @@ def test_simple(params):
     height = 256
     width = 512
     # img_path = '/home/pjk/depth/monodepth/building.jpg'
-    checkpoint = '/home/pjk/depth/monodepth/models/model_cityscapes'
+    checkpoint = 'models/model_cityscapes'
 
     left = tf.placeholder(tf.float32, [2, height, width, 3])
     model = MonodepthModel(params, "test", left, None)
 
+    # read camera VideoCapture
+    camera_port = 0
+    camera = cv2.VideoCapture(camera_port)
+    #time.sleep(0.1)  # otherwise the image is dark
+
+    first_run = True
+    plot_obj = None
+
     while(True):
         start_time = time.time()
-        input_image = get_image()
-        if input_image == None:
-            continue
+        input_image = get_image(camera)
         original_height, original_width, num_channels = input_image.shape
         input_image = scipy.misc.imresize(input_image, [height, width], interp='lanczos')
         input_image = input_image.astype(np.float32) / 255
@@ -100,14 +106,32 @@ def test_simple(params):
         res = requests.post('http://192.168.5.127:5000/depth_grid', json=np.array2string(pooling(disp_pp)))
         print('Response from server:', res.text)
         # UNCOMMENT THE FOLLOWING TO SAVE DEPTH IMAGE
-        # output_directory = '/home/pjk/depth/monodepth/'
-        # output_name = 'test_image'
-        # np.save(os.path.join(output_directory, "{}_disp.npy".format(output_name)), disp_pp)
-        # disp_to_img = scipy.misc.imresize(disp_pp.squeeze(), [original_height, original_width])
-        # plt.imsave(os.path.join(output_directory, "{}_disp.png".format(output_name)), disp_to_img, cmap='plasma')
+        output_directory = './'
+        output_name = 'depth_image'
+        np.save(os.path.join(output_directory, "{}_disp.npy".format(output_name)), disp_pp)
+        disp_to_img = scipy.misc.imresize(disp_pp.squeeze(), [original_height, original_width])
+        
+        #mat_array = cv.fromarray(disp_to_img)
+        #cv2.imshow("depth", mat_array)
+        
+        #plot_obj = Image.fromarray(disp_to_img)
+        #plot_obj.show("depth")
+        plt.imsave(os.path.join(output_directory, "{}_disp.png".format(output_name)), disp_to_img, cmap='plasma')
+        #plt.figure()
+        '''
+        if(first_run):
+            plot_obj = plt.imshow(disp_to_img)#output_name)
+            #plt.show()
+            first_run = False
+        plot_obj.set_data(disp_to_img)
+        plt.draw()
+        plt.show()
+        '''
+        
         print('Execution time: ')
         print (time.time() - start_time)
-
+    camera.release()
+    #cv2.destroyAllWindows()
 
 def main(_):
 
